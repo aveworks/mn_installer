@@ -26,16 +26,10 @@ SSHD_PORT="22"    #(recommended range is 1025-65535)
 #important, ssh will only be allowed through firewall to everyone, only 
 #if you do not set a static ip below. if you have a static ip then all ports will be allowed from it
 
-
-#your home ip address for the firewall to only allow your ip into ssh
-#if you do not have an ip at home that stays the same, leave the below value
-#if left to be a.b.c.d then the script will ignore it
-YOURIP="a.b.c.d"       #no cidr addressing please only a single ip here
-
 #username you want the service to run as, if you want it to run as root, leave root
 #if you want it to run as pirl put in pirl. no spaces allowed, and all lower case please.
 #this user will not be used as a login user, so no password will be set.
-RUNAS_USER="root"      #recommended username is pirl or root
+RUNAS_USER="pirl"      #recommended username is pirl or root
 
 
 
@@ -58,7 +52,6 @@ fi
 
 
 #check sshd port
-CHANGESSH="0"
 if [ "$SSHD_PORT" -eq "30303" ]
   then
   echo "you are not allowed to use port 30303, pick something else for ssh"
@@ -69,8 +62,6 @@ if [ "$SSHD_PORT" -eq "22" ]
   echo sshd port default, and is 22
   echo will not change service
   sleep 1
-else
-CHANGESSH="1"
 fi
 
 #check if username already exists,(if not we will make it later)
@@ -91,22 +82,6 @@ CREATEUSERNAME=1
  sleep 1
 fi
 
-#one last check for ip structure. fail if its out of bounds
-#using ping cause im lazy with regex
-if [ "$YOURIP" != "a.b.c.d" ] 
-  then
-  echo IP value set for YOURIP variable, testing...
-  ping -W .1 -c 1 $YOURIP 2>/dev/null 1>/dev/null
-  #exit code 2 is an invalid host
-  if [ $? -eq "2" ] 
-    then
-    echo "IP address format error, exiting." 
-  else
-    echo "IP address  looks ok. proceeding"
-    FIREWALLIP_OK="1"
-    sleep 1
-  fi
-fi  
 echo "OK, initial sanity checks look ok, proceeding"
 echo "next step Creating service username if needed in 10 seconds"
 sleep 5
@@ -234,82 +209,13 @@ systemctl start pirlnode
 
 #echo -e "\n\n can monitor with journalctl --unit=pirlnode -f \n\n"
 
-echo "next step updating packages for operating system in 10 seconds"
-sleep 5
-echo "4"
-sleep 1
-echo "3"
-sleep 1
-echo "2"
-sleep 1
-echo "1"
-sleep 1
-
-clear
-echo this will take a few minutes
-sleep 4
-
-############## update packages ###################
-##################################################
-apt-get update
-apt-get dist-upgrade -y
-apt-get install ufw -y
-apt-get install fail2ban -y
-
-
-############## update ssh port ###################
-##################################################
-if [ "$CHANGESSH" -eq "1" ]
-  then
-  #comment out old port
-   sed -i "s@Port@#Port@" /etc/ssh/sshd_config
-  #add new port to bottom
-  echo "Port $SSHD_PORT" >> /etc/ssh/sshd_config
-  #restart ssh
-  systemctl restart ssh
-
-  echo "ssh daemon is now running on port $SSHD_PORT , use this from now on for ssh"
-fi
-
-
-
-echo "next step setting up firewall in 10 seconds"
-sleep 5
-echo "4"
-sleep 1
-echo "3"
-sleep 1
-echo "2"
-sleep 1
-echo "1"
-sleep 1
-################## setup firewall #################
-###################################################
-#enable fail2ban
-systemctl enable fail2ban
-systemctl start fail2ban
-
-
-#firewall rules
-systemctl enable ufw
-if [ "$FIREWALLIP_OK" = "1" ]
-  then
-  ufw allow from $YOURIP
-else
-#port for ssh opened if user does not have static ip at home.
-ufw allow $SSHD_PORT/tcp
-fi
 
 #default ports for pirlnode
 ufw allow 30303/tcp
 ufw allow 30303/udp
 
 #allow all outgoing
-ufw default allow outgoing
-
-#block everything else incoming
-ufw default deny incoming
-ufw enable
+# ufw default allow outgoing
 
 clear
 #show the status
